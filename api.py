@@ -5,7 +5,7 @@ import uuid
 import requests
 from furl import furl
 
-from exceptions import QuoteExpiredException, OrderRejectedException, RiskExposureTooHighException, MaximumQuantityExceededException
+import exceptions
 from schemas import Quote, Order
 
 logging.basicConfig(level=logging.INFO)
@@ -30,10 +30,10 @@ def handle_errors(data):
     error_code = error.get('code')
 
     if error_code == 1012:
-        raise RiskExposureTooHighException(error_message)
+        raise exceptions.RiskExposureTooHighException(error_message)
 
     if error_code == 1010:
-        raise MaximumQuantityExceededException(error_message)
+        raise exceptions.MaximumQuantityExceededException(error_message)
 
 
 class B2C2Api:
@@ -66,7 +66,7 @@ class B2C2Api:
 
     def create_order(self, quote: Quote):
         if quote.is_expired:
-            raise QuoteExpiredException
+            raise exceptions.QuoteExpiredException
 
         payload = {
             'instrument': quote.instrument,
@@ -83,7 +83,7 @@ class B2C2Api:
         order = Order(**response_json)
 
         if order.is_rejected:
-            raise OrderRejectedException
+            raise exceptions.OrderRejectedException
 
         return order
 
