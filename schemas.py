@@ -38,6 +38,7 @@ class Order:
     price: float
     executing_unit: str
     trades: List[dict]
+    order_type: str
     created: datetime
     executed_price: float = None
 

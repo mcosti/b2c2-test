@@ -8,3 +8,11 @@ class QuoteExpiredException(B2C2Exception):
 
 class OrderRejectedException(B2C2Exception):
     """The order has been rejected"""
+
+
+class RiskExposureTooHighException(B2C2Exception):
+    """Risk exposure too high"""
+
+
+class MaximumQuantityExceededException(B2C2Exception):
+    """Maximum quantity exceeded"""

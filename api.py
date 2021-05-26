@@ -5,7 +5,7 @@ import uuid
 import requests
 from furl import furl
 
-from exceptions import QuoteExpiredException, OrderRejectedException
+from exceptions import QuoteExpiredException, OrderRejectedException, RiskExposureTooHighException, MaximumQuantityExceededException
 from schemas import Quote, Order
 
 logging.basicConfig(level=logging.INFO)
@@ -15,27 +15,49 @@ ORDER_TYPE = 'FOK'
 EXECUTING_UNIT = 'risk-adding-strategy'
 
 
+def handle_errors(data):
+    if isinstance(data, list):
+        return
+
+    errors = data.get('errors', [])
+    if not errors:
+        return
+
+    # I am gonna treat just the first error
+
+    [error] = errors
+    error_message = error.get('message')
+    error_code = error.get('code')
+
+    if error_code == 1012:
+        raise RiskExposureTooHighException(error_message)
+
+    if error_code == 1010:
+        raise MaximumQuantityExceededException(error_message)
+
+
 class B2C2Api:
     endpoint = "https://api.uat.b2c2.net/"
-    endpoint = "https://b2c2-test.free.beeceptor.com"
+    # endpoint = "https://b2c2-test.free.beeceptor.com"  # Mock I used for testing
 
     def __init__(self):
         token = os.getenv("B2C2_TOKEN", "e13e627c49705f83cbe7b60389ac411b6f86fee7")
         self.headers = {"Authorization": f"Token {token}"}
 
     def request(self, method, path, payload=None):
-        path = furl(self.endpoint).add(path=path)
-        logger.info(f"Requesting {method} {path}")
+        path = furl(self.endpoint).add(path=path + '/')
+        logger.info(f"Requesting {method} {path} \n")
         response = requests.request(method, path, headers=self.headers, json=payload)
+        data = response.json()
+
+        handle_errors(data)
         response.raise_for_status()
-        # Handle custom errors in the JSON (The errors are unknown at this moment)
-        print(response.text)
-        return response.json()
+        return data
 
     def request_quote(self, instrument: str, side: str, quantity: float) -> Quote:
         payload = {
             'instrument': instrument,
-            'side': side,
+            'side': side.lower(),
             'quantity': str(quantity),
             'client_rfq_id': str(uuid.uuid4())
         }
@@ -48,7 +70,7 @@ class B2C2Api:
 
         payload = {
             'instrument': quote.instrument,
-            'side': quote.side,
+            'side': quote.side.lower(),
             'quantity': str(quote.quantity),
             'client_order_id': quote.client_rfq_id,
             'price': str(quote.price),
